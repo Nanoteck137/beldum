@@ -25,9 +25,22 @@ export type GetProjects = z.infer<typeof GetProjects>;
 export const GetProjectById = Project;
 export type GetProjectById = z.infer<typeof GetProjectById>;
 
+export const CreateBoard = z.object({
+  id: z.string(),
+});
+export type CreateBoard = z.infer<typeof CreateBoard>;
+
+export const CreateBoardBody = z.object({
+  name: z.string(),
+  hidden: z.boolean(),
+});
+export type CreateBoardBody = z.infer<typeof CreateBoardBody>;
+
 export const Task = z.object({
   id: z.string(),
   name: z.string(),
+  boardId: z.string(),
+  boardName: z.string(),
   tags: z.array(z.string()),
   created: z.number(),
   updated: z.number(),
@@ -45,6 +58,11 @@ export const GetProjectBoards = z.object({
   boards: z.array(Board),
 });
 export type GetProjectBoards = z.infer<typeof GetProjectBoards>;
+
+export const GetProjectTasks = z.object({
+  tasks: z.array(Task),
+});
+export type GetProjectTasks = z.infer<typeof GetProjectTasks>;
 
 export const CreateTask = z.object({
   id: z.string(),

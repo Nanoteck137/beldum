@@ -56,7 +56,7 @@
 </script>
 
 <svelte:head>
-  <title>Kanbor</title>
+  <title>Beldum</title>
 </svelte:head>
 
 <Toaster position="bottom-right" />
@@ -74,7 +74,7 @@
       <Menu size="20" />
     </button>
 
-    <a class="text-2xl font-medium text-[--logo-color]" href="/">Kanbor</a>
+    <a class="text-2xl font-medium text-[--logo-color]" href="/">Beldum</a>
 
     <div class="flex-grow"></div>
 
@@ -117,7 +117,7 @@
           showSideMenu = false;
         }}
       >
-        Kanbor
+        Beldum
       </a>
     </div>
 

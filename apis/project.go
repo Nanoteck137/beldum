@@ -2,10 +2,10 @@ package apis
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"net/http"
 
-	"github.com/kr/pretty"
 	"github.com/nanoteck137/beldum/core"
 	"github.com/nanoteck137/beldum/database"
 	"github.com/nanoteck137/beldum/tools/utils"
@@ -23,6 +23,9 @@ type Project struct {
 type Task struct {
 	Id    string `json:"id"`
 	Title string `json:"name"`
+
+	BoardId   string `json:"boardId"`
+	BoardName string `json:"boardName"`
 
 	Tags []string `json:"tags"`
 
@@ -67,6 +70,10 @@ type GetProjectBoards struct {
 	Boards []Board `json:"boards"`
 }
 
+type GetProjectTasks struct {
+	Tasks []Task `json:"tasks"`
+}
+
 type CreateTask struct {
 	Id string `json:"id"`
 }
@@ -92,6 +99,25 @@ func (b *CreateTaskBody) Transform() {
 func (b CreateTaskBody) Validate() error {
 	return validate.ValidateStruct(&b,
 		validate.Field(&b.Title, validate.Required),
+	)
+}
+
+type CreateBoard struct {
+	Id string `json:"id"`
+}
+
+type CreateBoardBody struct {
+	Name   string `json:"name"`
+	Hidden bool   `json:"hidden"`
+}
+
+func (b *CreateBoardBody) Transform() {
+	b.Name = transform.String(b.Name)
+}
+
+func (b CreateBoardBody) Validate() error {
+	return validate.ValidateStruct(&b,
+		validate.Field(&b.Name, validate.Required),
 	)
 }
 
@@ -125,27 +151,36 @@ func InstallTaskHandlers(app core.App, group pyrin.Group) {
 				}
 
 				_, err = app.DB().CreateBoard(ctx, database.CreateBoardParams{
-					Name:        "Backlog",
-					ProjectId:   project.Id,
-					OrderNumber: 0,
+					Name:      "Backlog",
+					ProjectId: project.Id,
+					OrderNumber: sql.NullInt64{
+						Int64: 0,
+						Valid: true,
+					},
 				})
 				if err != nil {
 					return nil, err
 				}
 
 				_, err = app.DB().CreateBoard(ctx, database.CreateBoardParams{
-					Name:        "Work in progress",
-					ProjectId:   project.Id,
-					OrderNumber: 1,
+					Name:      "Work in progress",
+					ProjectId: project.Id,
+					OrderNumber: sql.NullInt64{
+						Int64: 1,
+						Valid: true,
+					},
 				})
 				if err != nil {
 					return nil, err
 				}
 
 				_, err = app.DB().CreateBoard(ctx, database.CreateBoardParams{
-					Name:        "Done",
-					ProjectId:   project.Id,
-					OrderNumber: 2,
+					Name:      "Done",
+					ProjectId: project.Id,
+					OrderNumber: sql.NullInt64{
+						Int64: 2,
+						Valid: true,
+					},
 				})
 				if err != nil {
 					return nil, err
@@ -229,6 +264,78 @@ func InstallTaskHandlers(app core.App, group pyrin.Group) {
 		},
 
 		pyrin.ApiHandler{
+			Name:         "CreateBoard",
+			Method:       http.MethodPost,
+			Path:         "/projects/:projectId/boards",
+			ResponseType: CreateBoard{},
+			BodyType:     CreateBoardBody{},
+			Errors:       []pyrin.ErrorType{ErrTypeProjectNotFound},
+			HandlerFunc: func(c pyrin.Context) (any, error) {
+				projectId := c.Param("projectId")
+
+				ctx := context.TODO()
+
+				body, err := pyrin.Body[CreateBoardBody](c)
+				if err != nil {
+					return nil, err
+				}
+
+				user, err := User(app, c)
+				if err != nil {
+					return nil, err
+				}
+
+				project, err := app.DB().GetProjectById(ctx, projectId)
+				if err != nil {
+					if errors.Is(err, database.ErrItemNotFound) {
+						return nil, ProjectNotFound()
+					}
+
+					return nil, err
+				}
+
+				if project.OwnerId != user.Id {
+					return nil, ProjectNotFound()
+				}
+
+				orderNumber := sql.NullInt64{}
+
+				if !body.Hidden {
+					boards, err := app.DB().GetBoardsNotHiddenByProject(ctx, project.Id)
+					if err != nil {
+						return nil, err
+					}
+
+					if len(boards) > 0 {
+						lastBoard := boards[len(boards) - 1]
+						orderNumber = sql.NullInt64{
+							Int64: lastBoard.OrderNumber.Int64 + 1,
+							Valid: true,
+						}
+					} else {
+						orderNumber = sql.NullInt64{
+							Int64: 0,
+							Valid: true,
+						}
+					}
+				}
+
+				board, err := app.DB().CreateBoard(ctx, database.CreateBoardParams{
+					Name:        body.Name,
+					ProjectId:   project.Id,
+					OrderNumber: orderNumber,
+				})
+				if err != nil {
+					return nil, err
+				}
+
+				return CreateBoard{
+					Id: board.Id,
+				}, nil
+			},
+		},
+
+		pyrin.ApiHandler{
 			Name:         "GetProjectBoards",
 			Method:       http.MethodGet,
 			Path:         "/projects/:projectId/boards",
@@ -257,7 +364,7 @@ func InstallTaskHandlers(app core.App, group pyrin.Group) {
 					return nil, ProjectNotFound()
 				}
 
-				boards, err := app.DB().GetBoardsByProject(ctx, project.Id)
+				boards, err := app.DB().GetBoardsNotHiddenByProject(ctx, project.Id)
 				if err != nil {
 					return nil, err
 				}
@@ -274,15 +381,15 @@ func InstallTaskHandlers(app core.App, group pyrin.Group) {
 
 					items := make([]Task, len(dbItems))
 
-					pretty.Println(dbItems)
-
 					for i, item := range dbItems {
 						items[i] = Task{
-							Id:      item.Id,
-							Title:   item.Title,
-							Tags:    utils.SplitString(item.Tags.String),
-							Created: item.Created,
-							Updated: item.Updated,
+							Id:        item.Id,
+							Title:     item.Title,
+							BoardId:   item.BoardId,
+							BoardName: item.BoardName,
+							Tags:      utils.SplitString(item.Tags.String),
+							Created:   item.Created,
+							Updated:   item.Updated,
 						}
 					}
 
@@ -290,6 +397,60 @@ func InstallTaskHandlers(app core.App, group pyrin.Group) {
 						Id:    board.Id,
 						Name:  board.Name,
 						Items: items,
+					}
+				}
+
+				return res, nil
+			},
+		},
+
+		pyrin.ApiHandler{
+			Name:         "GetProjectTasks",
+			Method:       http.MethodGet,
+			Path:         "/projects/:projectId/tasks",
+			ResponseType: GetProjectTasks{},
+			Errors:       []pyrin.ErrorType{ErrTypeProjectNotFound},
+			HandlerFunc: func(c pyrin.Context) (any, error) {
+				projectId := c.Param("projectId")
+
+				ctx := context.TODO()
+
+				user, err := User(app, c)
+				if err != nil {
+					return nil, err
+				}
+
+				project, err := app.DB().GetProjectById(ctx, projectId)
+				if err != nil {
+					if errors.Is(err, database.ErrItemNotFound) {
+						return nil, ProjectNotFound()
+					}
+
+					return nil, err
+				}
+
+				if project.OwnerId != user.Id {
+					return nil, ProjectNotFound()
+				}
+
+				tasks, err := app.DB().GetTasksByProject(ctx, project.Id)
+				if err != nil {
+					return nil, err
+				}
+
+				res := GetProjectTasks{
+					Tasks: make([]Task, len(tasks)),
+				}
+
+				for i, task := range tasks {
+					res.Tasks[i] = Task{
+						Id:        task.Id,
+						Title:     task.Title,
+						BoardId:   task.BoardId,
+						BoardName: task.BoardName,
+						Tags:      utils.SplitString(task.Tags.String),
+						Created:   task.Created,
+						Updated:   task.Updated,
 					}
 				}
 
@@ -339,8 +500,9 @@ func InstallTaskHandlers(app core.App, group pyrin.Group) {
 				}
 
 				task, err := app.DB().CreateTask(ctx, database.CreateTaskParams{
-					Title:   body.Title,
-					BoardId: board.Id,
+					Title:     body.Title,
+					ProjectId: project.Id,
+					BoardId:   board.Id,
 				})
 				if err != nil {
 					return nil, err
@@ -427,6 +589,11 @@ func InstallTaskHandlers(app core.App, group pyrin.Group) {
 					return nil, ProjectNotFound()
 				}
 
+				if task.ProjectId != dstProject.Id {
+					// TODO(patrik): Better error
+					return nil, errors.New("Project not matching")
+				}
+
 				err = app.DB().UpdateTask(ctx, task.Id, database.TaskChanges{
 					BoardId: types.Change[string]{
 						Value:   dstBoard.Id,
@@ -437,92 +604,8 @@ func InstallTaskHandlers(app core.App, group pyrin.Group) {
 					return nil, err
 				}
 
-				//
-				// task, err := app.DB().CreateTask(ctx, database.CreateTaskParams{
-				// 	Title:   body.Title,
-				// 	BoardId: board.Id,
-				// })
-				// if err != nil {
-				// 	return nil, err
-				// }
-				//
-				// for _, tag := range body.Tags {
-				// 	err := app.DB().CreateTag(ctx, project.Id, tag)
-				// 	if err != nil && !errors.Is(err, database.ErrItemAlreadyExists) {
-				// 		return nil, err
-				// 	}
-				//
-				// 	err = app.DB().AddTaskTag(ctx, task.Id, project.Id, tag)
-				// 	if err != nil && !errors.Is(err, database.ErrItemAlreadyExists) {
-				// 		return nil, err
-				// 	}
-				// }
-
 				return nil, nil
 			},
 		},
-
-		// pyrin.ApiHandler{
-		// 	Name:         "GetTasks",
-		// 	Method:       http.MethodGet,
-		// 	Path:         "/tasks",
-		// 	ResponseType: GetTasks{},
-		// 	HandlerFunc: func(c pyrin.Context) (any, error) {
-		// 		ctx := context.TODO()
-		//
-		// 		tasks, err := app.DB().GetAllTasks(ctx)
-		// 		if err != nil {
-		// 			return nil, err
-		// 		}
-		//
-		// 		pretty.Println(tasks)
-		//
-		// 		return nil, nil
-		// 	},
-		// },
-		//
-		// pyrin.ApiHandler{
-		// 	Name:         "CreateTask",
-		// 	Method:       http.MethodPost,
-		// 	Path:         "/tasks",
-		// 	ResponseType: CreateTask{},
-		// 	BodyType:     CreateTaskBody{},
-		// 	HandlerFunc: func(c pyrin.Context) (any, error) {
-		// 		ctx := context.TODO()
-		//
-		// 		body, err := pyrin.Body[CreateTaskBody](c)
-		// 		if err != nil {
-		// 			return nil, err
-		// 		}
-		//
-		// 		// TODO(patrik): Use transation?
-		// 		task, err := app.DB().CreateTask(ctx, database.CreateTaskParams{
-		// 			Title: body.Title,
-		// 		})
-		// 		if err != nil {
-		// 			return nil, err
-		// 		}
-		//
-		// 		for _, tag := range body.Tags {
-		// 			err := app.DB().CreateTag(ctx, tag)
-		// 			if err != nil && !errors.Is(err, database.ErrItemAlreadyExists) {
-		// 				return nil, err
-		// 			}
-		//
-		// 			err = app.DB().AddTaskTag(ctx, tag, task.Id)
-		// 			if err != nil && !errors.Is(err, database.ErrItemAlreadyExists) {
-		// 				return nil, err
-		// 			}
-		// 		}
-		//
-		// 		return CreateTask{
-		// 			Id: task.Id,
-		// 		}, nil
-		// 	},
-		// },
 	)
-}
-
-type GetTasks struct {
-	Tasks []Task `json:"tasks"`
 }

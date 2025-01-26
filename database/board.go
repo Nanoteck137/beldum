@@ -20,7 +20,7 @@ type Board struct {
 
 	ProjectId string `db:"project_id"`
 
-	OrderNumber int64 `db:"order_number"`
+	OrderNumber sql.NullInt64 `db:"order_number"`
 
 	Created int64 `db:"created"`
 	Updated int64 `db:"updated"`
@@ -75,9 +75,12 @@ func (db *Database) GetBoardById(ctx context.Context, id string) (Board, error) 
 	return item, nil
 }
 
-func (db *Database) GetBoardsByProject(ctx context.Context, projectId string) ([]Board, error) {
+func (db *Database) GetBoardsNotHiddenByProject(ctx context.Context, projectId string) ([]Board, error) {
 	query := BoardQuery().
-		Where(goqu.I("boards.project_id").Eq(projectId))
+		Where(
+			goqu.I("boards.project_id").Eq(projectId),
+			goqu.I("boards.order_number").IsNotNull(),
+		)
 
 	var items []Board
 	err := db.Select(&items, query)
@@ -94,7 +97,7 @@ type CreateBoardParams struct {
 
 	ProjectId string
 
-	OrderNumber int64
+	OrderNumber sql.NullInt64
 
 	Created int64
 	Updated int64
@@ -169,7 +172,7 @@ type BoardChanges struct {
 
 	ProjectId types.Change[string]
 
-	OrderNumber types.Change[string]
+	OrderNumber types.Change[sql.NullInt64]
 
 	Created types.Change[int64]
 }

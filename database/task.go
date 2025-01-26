@@ -18,7 +18,10 @@ type Task struct {
 	Id    string `db:"id"`
 	Title string `db:"title"`
 
-	BoardId string `db:"board_id"`
+	ProjectId string `db:"project_id"`
+
+	BoardId   string `db:"board_id"`
+	BoardName string `db:"board_name"`
 
 	Created int64 `db:"created"`
 	Updated int64 `db:"updated"`
@@ -41,7 +44,6 @@ func TaskQuery() *goqu.SelectDataset {
 		).
 		GroupBy(goqu.I("tasks_tags.task_id"))
 
-
 	query := dialect.From("tasks").
 		Select(
 			"tasks.rowid",
@@ -49,14 +51,21 @@ func TaskQuery() *goqu.SelectDataset {
 			"tasks.id",
 			"tasks.title",
 
+			"tasks.project_id",
 			"tasks.board_id",
 
 			"tasks.created",
 			"tasks.updated",
 
+			goqu.I("boards.name").As("board_name"),
+
 			goqu.I("tags.tags").As("tags"),
 		).
 		Prepared(true).
+		Join(
+			goqu.I("boards"),
+			goqu.On(goqu.I("tasks.board_id").Eq(goqu.I("boards.id"))),
+		).
 		LeftJoin(
 			tags.As("tags"),
 			goqu.On(goqu.I("tasks.id").Eq(goqu.I("tags.task_id"))),
@@ -108,11 +117,25 @@ func (db *Database) GetTasksByBoard(ctx context.Context, boardId string) ([]Task
 	return items, nil
 }
 
+func (db *Database) GetTasksByProject(ctx context.Context, projectId string) ([]Task, error) {
+	query := TaskQuery().
+		Where(goqu.I("tasks.project_id").Eq(projectId))
+
+	var items []Task
+	err := db.Select(&items, query)
+	if err != nil {
+		return nil, err
+	}
+
+	return items, nil
+}
+
 type CreateTaskParams struct {
 	Id    string
 	Title string
 
-	BoardId string
+	ProjectId string
+	BoardId   string
 
 	Created int64
 	Updated int64
@@ -138,7 +161,8 @@ func (db *Database) CreateTask(ctx context.Context, params CreateTaskParams) (Ta
 			"id":    id,
 			"title": params.Title,
 
-			"board_id": params.BoardId,
+			"project_id": params.ProjectId,
+			"board_id":   params.BoardId,
 
 			"created": created,
 			"updated": updated,
@@ -147,6 +171,7 @@ func (db *Database) CreateTask(ctx context.Context, params CreateTaskParams) (Ta
 			"tasks.id",
 			"tasks.title",
 
+			"tasks.project_id",
 			"tasks.board_id",
 
 			"tasks.created",
@@ -179,7 +204,8 @@ func (db *Database) DeleteTask(ctx context.Context, id string) error {
 type TaskChanges struct {
 	Title types.Change[string]
 
-	BoardId types.Change[string]
+	ProjectId types.Change[string]
+	BoardId   types.Change[string]
 
 	Created types.Change[int64]
 }
@@ -189,6 +215,7 @@ func (db *Database) UpdateTask(ctx context.Context, id string, changes TaskChang
 
 	addToRecord(record, "title", changes.Title)
 
+	addToRecord(record, "project_id", changes.ProjectId)
 	addToRecord(record, "board_id", changes.BoardId)
 
 	addToRecord(record, "created", changes.Created)

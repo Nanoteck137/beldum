@@ -68,6 +68,33 @@
       "fields": null
     },
     {
+      "name": "CreateBoard",
+      "extend": "",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "omit": false
+        }
+      ]
+    },
+    {
+      "name": "CreateBoardBody",
+      "extend": "",
+      "fields": [
+        {
+          "name": "name",
+          "type": "string",
+          "omit": false
+        },
+        {
+          "name": "hidden",
+          "type": "bool",
+          "omit": false
+        }
+      ]
+    },
+    {
       "name": "Task",
       "extend": "",
       "fields": [
@@ -78,6 +105,16 @@
         },
         {
           "name": "name",
+          "type": "string",
+          "omit": false
+        },
+        {
+          "name": "boardId",
+          "type": "string",
+          "omit": false
+        },
+        {
+          "name": "boardName",
           "type": "string",
           "omit": false
         },
@@ -126,6 +163,17 @@
         {
           "name": "boards",
           "type": "[]Board",
+          "omit": false
+        }
+      ]
+    },
+    {
+      "name": "GetProjectTasks",
+      "extend": "",
+      "fields": [
+        {
+          "name": "tasks",
+          "type": "[]Task",
           "omit": false
         }
       ]
@@ -368,10 +416,24 @@
       "bodyType": ""
     },
     {
+      "name": "CreateBoard",
+      "method": "POST",
+      "path": "/api/v1/projects/:projectId/boards",
+      "responseType": "CreateBoard",
+      "bodyType": "CreateBoardBody"
+    },
+    {
       "name": "GetProjectBoards",
       "method": "GET",
       "path": "/api/v1/projects/:projectId/boards",
       "responseType": "GetProjectBoards",
+      "bodyType": ""
+    },
+    {
+      "name": "GetProjectTasks",
+      "method": "GET",
+      "path": "/api/v1/projects/:projectId/tasks",
+      "responseType": "GetProjectTasks",
       "bodyType": ""
     },
     {

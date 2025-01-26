@@ -25,7 +25,7 @@ CREATE TABLE boards (
 
     project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
 
-    order_number INT NOT NULL,
+    order_number INT,
 
     created INTEGER NOT NULL,
     updated INTEGER NOT NULL
@@ -35,6 +35,7 @@ CREATE TABLE tasks (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL CHECK(title<>''),
 
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     -- TODO(patrik): Might change this to nullable
     board_id TEXT NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
 

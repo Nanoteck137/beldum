@@ -20,8 +20,16 @@ export class ApiClient extends BaseApiClient {
     return this.request(`/api/v1/projects/${projectId}`, "GET", api.GetProjectById, z.any(), undefined, options)
   }
   
+  createBoard(projectId: string, body: api.CreateBoardBody, options?: ExtraOptions) {
+    return this.request(`/api/v1/projects/${projectId}/boards`, "POST", api.CreateBoard, z.any(), body, options)
+  }
+  
   getProjectBoards(projectId: string, options?: ExtraOptions) {
     return this.request(`/api/v1/projects/${projectId}/boards`, "GET", api.GetProjectBoards, z.any(), undefined, options)
+  }
+  
+  getProjectTasks(projectId: string, options?: ExtraOptions) {
+    return this.request(`/api/v1/projects/${projectId}/tasks`, "GET", api.GetProjectTasks, z.any(), undefined, options)
   }
   
   createTask(boardId: string, body: api.CreateTaskBody, options?: ExtraOptions) {
