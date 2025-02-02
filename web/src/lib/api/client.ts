@@ -20,8 +20,12 @@ export class ApiClient extends BaseApiClient {
     return this.request(`/api/v1/projects/${projectId}`, "GET", api.GetProjectById, z.any(), undefined, options)
   }
   
-  createBoard(projectId: string, body: api.CreateBoardBody, options?: ExtraOptions) {
-    return this.request(`/api/v1/projects/${projectId}/boards`, "POST", api.CreateBoard, z.any(), body, options)
+  createBoard(body: api.CreateBoardBody, options?: ExtraOptions) {
+    return this.request("/api/v1/boards", "POST", api.CreateBoard, z.any(), body, options)
+  }
+  
+  getAllProjectBoards(projectId: string, options?: ExtraOptions) {
+    return this.request(`/api/v1/projects/${projectId}/boards/all`, "GET", api.GetAllProjectBoards, z.any(), undefined, options)
   }
   
   getProjectBoards(projectId: string, options?: ExtraOptions) {
@@ -32,8 +36,16 @@ export class ApiClient extends BaseApiClient {
     return this.request(`/api/v1/projects/${projectId}/tasks`, "GET", api.GetProjectTasks, z.any(), undefined, options)
   }
   
-  createTask(boardId: string, body: api.CreateTaskBody, options?: ExtraOptions) {
-    return this.request(`/api/v1/boards/${boardId}/tasks`, "POST", api.CreateTask, z.any(), body, options)
+  editBoard(boardId: string, body: api.EditBoardBody, options?: ExtraOptions) {
+    return this.request(`/api/v1/boards/${boardId}`, "PATCH", z.undefined(), z.any(), body, options)
+  }
+  
+  createTask(body: api.CreateTaskBody, options?: ExtraOptions) {
+    return this.request("/api/v1/tasks", "POST", api.CreateTask, z.any(), body, options)
+  }
+  
+  deleteTask(taskId: string, options?: ExtraOptions) {
+    return this.request(`/api/v1/tasks/${taskId}`, "DELETE", z.undefined(), z.any(), undefined, options)
   }
   
   moveTask(taskId: string, boardId: string, options?: ExtraOptions) {

@@ -11,11 +11,13 @@
     ChevronRight,
     EllipsisVertical,
     Clipboard,
+    Trash,
   } from "lucide-svelte";
   import { modals } from "svelte-modals";
   import NewTaskModal from "./NewTaskModal.svelte";
-  import { getApiClient, handleApiError } from "$lib";
+  import { getApiClient, handleApiError, openConfirm } from "$lib";
   import { invalidateAll } from "$app/navigation";
+  import toast from "svelte-5-french-toast";
 
   const { data } = $props();
   const apiClient = getApiClient();
@@ -45,14 +47,18 @@
                   onSelect={async () => {
                     const modalData = await modals.open(NewTaskModal, {});
                     if (modalData) {
-                      const res = await apiClient.createTask(board.id, {
+                      const res = await apiClient.createTask({
                         title: modalData.title,
                         tags: modalData.tags.split(","),
+                        boardId: board.id,
                       });
                       if (!res.success) {
                         handleApiError(res.error);
+                        invalidateAll();
+                        return;
                       }
 
+                      toast.success("Successfully created task");
                       invalidateAll();
                     }
                   }}
@@ -86,9 +92,40 @@
 
               <div class="flex justify-between">
                 <div>
-                  <Button variant="ghost" size="icon">
-                    <EllipsisVertical />
-                  </Button>
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger
+                      class={cn(
+                        buttonVariants({ variant: "ghost", size: "icon" }),
+                      )}
+                    >
+                      <EllipsisVertical />
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Content align="end">
+                      <DropdownMenu.Group>
+                        <DropdownMenu.Item
+                          onSelect={async () => {
+                            const confirmed = await openConfirm({
+                              title: "Are you sure?",
+                            });
+                            if (confirmed) {
+                              const res = await apiClient.deleteTask(item.id);
+                              if (!res.success) {
+                                handleApiError(res.error);
+                                invalidateAll();
+                                return;
+                              }
+
+                              toast.success("Successfully deleted task");
+                              invalidateAll();
+                            }
+                          }}
+                        >
+                          <Trash />
+                          Delete Task
+                        </DropdownMenu.Item>
+                      </DropdownMenu.Group>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Root>
                 </div>
 
                 <div class="flex gap-2">

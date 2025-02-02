@@ -74,13 +74,7 @@
       <Menu size="20" />
     </button>
 
-    <a class="text-2xl font-medium text-[--logo-color]" href="/">Beldum</a>
-
-    <div class="flex-grow"></div>
-
-    <Button href="/search" size="icon" variant="ghost">
-      <Search />
-    </Button>
+    <a class="text-2xl font-medium" href="/">Beldum</a>
   </div>
 </header>
 

@@ -33,8 +33,22 @@ export type CreateBoard = z.infer<typeof CreateBoard>;
 export const CreateBoardBody = z.object({
   name: z.string(),
   hidden: z.boolean(),
+  projectId: z.string(),
 });
 export type CreateBoardBody = z.infer<typeof CreateBoardBody>;
+
+export const ShallowBoard = z.object({
+  id: z.string(),
+  name: z.string(),
+  order: z.number(),
+});
+export type ShallowBoard = z.infer<typeof ShallowBoard>;
+
+export const GetAllProjectBoards = z.object({
+  boards: z.array(ShallowBoard),
+  hiddenBoards: z.array(ShallowBoard),
+});
+export type GetAllProjectBoards = z.infer<typeof GetAllProjectBoards>;
 
 export const Task = z.object({
   id: z.string(),
@@ -64,6 +78,12 @@ export const GetProjectTasks = z.object({
 });
 export type GetProjectTasks = z.infer<typeof GetProjectTasks>;
 
+export const EditBoardBody = z.object({
+  name: z.string().nullable().optional(),
+  order: z.number().nullable().optional(),
+});
+export type EditBoardBody = z.infer<typeof EditBoardBody>;
+
 export const CreateTask = z.object({
   id: z.string(),
 });
@@ -72,6 +92,7 @@ export type CreateTask = z.infer<typeof CreateTask>;
 export const CreateTaskBody = z.object({
   title: z.string(),
   tags: z.array(z.string()),
+  boardId: z.string(),
 });
 export type CreateTaskBody = z.infer<typeof CreateTaskBody>;
 

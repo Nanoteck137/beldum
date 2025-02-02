@@ -75,12 +75,22 @@ func (db *Database) GetBoardById(ctx context.Context, id string) (Board, error) 
 	return item, nil
 }
 
-func (db *Database) GetBoardsNotHiddenByProject(ctx context.Context, projectId string) ([]Board, error) {
-	query := BoardQuery().
-		Where(
+func (db *Database) GetBoardsByProject(ctx context.Context, projectId string, hidden bool) ([]Board, error) {
+	query := BoardQuery()
+
+	if hidden {
+		query = query.Where(
 			goqu.I("boards.project_id").Eq(projectId),
-			goqu.I("boards.order_number").IsNotNull(),
+			goqu.I("boards.order_number").IsNull(),
 		)
+	} else {
+		query = query.
+			Where(
+				goqu.I("boards.project_id").Eq(projectId),
+				goqu.I("boards.order_number").IsNotNull(),
+			).
+			Order(goqu.I("boards.order_number").Asc())
+	}
 
 	var items []Board
 	err := db.Select(&items, query)
